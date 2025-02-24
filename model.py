@@ -3,7 +3,6 @@ import datetime
 import logging
 import random
 import uuid
-
 import time_uuid
 from cassandra.query import BatchStatement
 
@@ -52,6 +51,17 @@ SELECT_USER_ACCOUNTS = """
     SELECT username, account_number, name, cash_balance
     FROM accounts_by_user
     WHERE username = ?
+"""
+
+SELECT_ACC_NUMS = """
+    SELECT account_number 
+    FROM accounts_by_user 
+    WHERE username = ? """
+
+SELECT_ACCOUNT_POSITIONS = """
+    SELECT symbol, quantity
+    FROM positions_by_account
+    WHERE account = ?
 """
 
 USERS = [
@@ -145,7 +155,7 @@ def create_schema(session):
     session.execute(CREATE_POSSITIONS_BY_ACCOUNT_TABLE)
     session.execute(CREATE_TRADES_BY_ACCOUNT_DATE_TABLE)
 
-
+# Option 1
 def get_user_accounts(session, username):
     log.info(f"Retrieving {username} accounts")
     stmt = session.prepare(SELECT_USER_ACCOUNTS)
@@ -153,3 +163,95 @@ def get_user_accounts(session, username):
     for row in rows:
         print(f"=== Account: {row.account_number} ===")
         print(f"- Cash Balance: {row.cash_balance}")
+
+# Option 2
+def get_positions(session, account):
+    log.info(f"Retrieving {account} positions")
+    stmt = session.prepare(SELECT_ACCOUNT_POSITIONS)
+    rows = session.execute(stmt, [account])
+    print(f"=== Account: {account} ===")
+    for row in rows:
+        print(f"- {row.symbol}: {row.quantity}")
+
+def get_account_positions(session, username):
+    log.info(f"Retrieving {username} positions")
+    stmt = session.prepare(SELECT_ACC_NUMS)
+    accs = session.execute(stmt, [username])
+    for acc in accs:
+        get_positions(session, acc.account_number)
+
+# Option 3
+#  1: "All Trades. (Optional date range. Defaults to latest 30 days)",
+#  2: "Trades by type (Buy or Sell). (Optional date range. Defaults to latest 30 days)",
+#  3: "Transaction by type (Buy or Sell) with instrument symbol. (Optional date range. Defaults to latest 30 days)",
+#  4: "Trades by symbol. (Optional date range. Defaults to latest 30 days)",
+
+def get_trades_by_date(session, account, start_date, end_date):
+    log.info(f"Retrieving {account} trades by date")
+    stmt = session.prepare("SELECT * FROM trades_by_a_d WHERE account = ? AND trade_id >= ? AND trade_id <= ?")
+    rows = session.execute(stmt, [account, start_date, end_date])
+    for row in rows:
+        print(f"=== Trade: {row.trade_id} ===")
+        print(f"- Type: {row.type}")
+        print(f"- Symbol: {row.symbol}")
+        print(f"- Shares: {row.shares}")
+        print(f"- Price: {row.price}")
+        print(f"- Amount: {row.amount}")
+
+def get_trades_by_type(session, account, trade_type, start_date, end_date):
+    log.info(f"Retrieving {account} trades by type")
+    stmt = session.prepare("SELECT * FROM trades_by_a_d WHERE account = ? AND type = ? AND trade_id >= ? AND trade_id <= ?")
+    rows = session.execute(stmt, [account, trade_type, start_date, end_date])
+    for row in rows:
+        print(f"=== Trade: {row.trade_id} ===")
+        print(f"- Type: {row.type}")
+        print(f"- Symbol: {row.symbol}")
+        print(f"- Shares: {row.shares}")
+        print(f"- Price: {row.price}")
+        print(f"- Amount: {row.amount}")
+
+def get_transaction_by_type_symbol(session, account, trade_type, symbol, start_date, end_date):
+    log.info(f"Retrieving {account} trades by type and symbol")
+    stmt = session.prepare("SELECT * FROM trades_by_a_d WHERE account = ? AND type = ? AND symbol = ? AND trade_id >= ? AND trade_id <= ?")
+    rows = session.execute(stmt, [account, trade_type, symbol, start_date, end_date])
+    for row in rows:
+        print(f"=== Trade: {row.trade_id} ===")
+        print(f"- Type: {row.type}")
+        print(f"- Symbol: {row.symbol}")
+        print(f"- Shares: {row.shares}")
+        print(f"- Price: {row.price}")
+        print(f"- Amount: {row.amount}")
+
+def get_trades_by_symbol(session, account, symbol, start_date, end_date):
+    log.info(f"Retrieving {account} trades by symbol")
+    stmt = session.prepare("SELECT * FROM trades_by_a_d WHERE account = ? AND symbol = ? AND trade_id >= ? AND trade_id <= ?")
+    rows = session.execute(stmt, [account, symbol, start_date, end_date])
+    for row in rows:
+        print(f"=== Trade: {row.trade_id} ===")
+        print(f"- Type: {row.type}")
+        print(f"- Symbol: {row.symbol}")
+        print(f"- Shares: {row.shares}")
+        print(f"- Price: {row.price}")
+        print(f"- Amount: {row.amount}")
+
+def trade_history_controller(tv_option, session, username):
+    # default date range is latest 30 days
+    start_date = datetime.datetime.now() - datetime.timedelta(days=30)
+    end_date = datetime.datetime.now()
+    
+    # Convert dates to TimeUUID
+    start_date_uuid = time_uuid.TimeUUID.with_timestamp(time_uuid.mkutime(start_date))
+    end_date_uuid = time_uuid.TimeUUID.with_timestamp(time_uuid.mkutime(end_date))
+    
+    if tv_option == 1:
+        get_trades_by_date(session, username, start_date_uuid, end_date_uuid)
+    if tv_option == 2:
+        trade_type = input('Enter trade type (buy or sell): ')
+        get_trades_by_type(session, username, trade_type, start_date_uuid, end_date_uuid)
+    if tv_option == 3:
+        trade_type = input('Enter trade type (buy or sell): ')
+        symbol = input('Enter symbol: ')
+        get_transaction_by_type_symbol(session, username, trade_type, symbol, start_date_uuid, end_date_uuid)
+    if tv_option == 4:
+        symbol = input('Enter symbol: ')
+        get_trades_by_symbol(session, username, symbol, start_date_uuid, end_date_uuid)

@@ -69,10 +69,11 @@ def main():
         if option == 1:
             model.get_user_accounts(session, username)
         if option == 2:
-            pass
+            model.get_account_positions(session, username)
         if option == 3:
             print_trade_history_menu()
             tv_option = int(input('Enter your trade view choice: '))
+            model.trade_history_controller(tv_option, session, username)
         if option == 4:
             username = set_username()
         if option == 5:
