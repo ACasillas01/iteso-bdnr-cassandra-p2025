@@ -196,8 +196,6 @@ def get_trades_by_date(session, account, start_date, end_date):
         stmt = session.prepare("SELECT * FROM trades_by_a_d WHERE account = ? AND trade_id >= ? AND trade_id <= ?")
         rows = session.execute(stmt, [acc.account_number, start_date, end_date])
         for row in rows:
-            print(row)
-            print(row)
             print(f"=== Trade: {row.trade_id} ===")
             print(f"- Type: {row.type}")
             print(f"- Symbol: {row.symbol}")
@@ -255,18 +253,20 @@ def get_trades_by_symbol(session, account, symbol, start_date, end_date):
 
 def trade_history_controller(tv_option, session, username):
 
+    # default date range is latest 30 days from upper limit (predefined limit)
+    start_date = datetime.datetime(2022, 8, 31) - datetime.timedelta(days=30)
+    end_date = datetime.datetime(2022, 8, 31)
+
     input_date_range = input("Define date range? (y/n): ")
     input_date_range = input_date_range.lower()
+
     if input_date_range == 'y' or input_date_range == 'yes':
         start_date = input('Enter start date (YYYY-MM-DD): ')
         end_date = input('Enter end date (YYYY-MM-DD): ')
         start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
         end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d')
 
-    else:
-        # default date range is latest 30 days from upper limit (predefined limit)
-        start_date = datetime.datetime(2022, 8, 31) - datetime.timedelta(days=30)
-        end_date = datetime.datetime(2022, 8, 31)
+    print(start_date, end_date)
     
     # Convert dates to TimeUUID
     start_date_uuid = time_uuid.TimeUUID.with_timestamp(time_uuid.mkutime(start_date))
